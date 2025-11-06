@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - EPPI</title>
+    <link rel="stylesheet" href="style.css"> 
+</head>
+<body class="login-body">
+    <div class="login-container">
+        <img src="upscalemedia-transformed.jpg" alt="EPPI Logo" class="login-logo">
+        <h2>LOGIN TO YOUR ACCOUNT</h2>
+        <form id="loginForm">
+            <input type="text" id="username" placeholder="Username" required>
+            <input type="password" id="password" placeholder="Password" required>
+            <button type="submit" class="login-button">LOGIN</button>
+            <p id="error-message" class="error-message"></p>
+        </form>
+        <div class="links">
+            <a href="#">Forgot Password?</a> |
+            <a href="register.html">Create Account</a>
+        </div>
+    </div>
+
+    <script>
+    document.getElementById('loginForm').addEventListener('submit', function(event) {
+        event.preventDefault(); 
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
+        const errorMessage = document.getElementById('error-message');
+        errorMessage.textContent = ''; 
+
+        // Use relative path for API call
+        fetch('/api/login', { 
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                localStorage.setItem('eppi_user_name', data.user.name);
+                localStorage.setItem('eppi_employer_id', data.user.employerId);
+                window.location.href = 'main.html';
+            } else {
+                errorMessage.textContent = data.message || 'Invalid username or password.';
+            }
+        })
+        .catch(error => {
+            errorMessage.textContent = 'Failed to connect to the server.';
+        });
+    });
+</script>
+</body>
+</html>

@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register New Employee</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="login-body">
+    <div class="login-container">
+        <img src="upscalemedia-transformed.jpg" alt="EPPI Logo" class="login-logo">
+        <h2>REGISTER NEW EMPLOYEE</h2>
+        <form id="registrationForm">
+            <input type="text" id="regName" placeholder="Full Name" required>
+            <input type="text" id="regEmployerId" placeholder="Employer ID (e.g., EPPI-100)" required>
+            <input type="text" id="regUsername" placeholder="Username (for login)" required>
+            <input type="password" id="regPassword" placeholder="Password" required>
+            <button type="submit" class="login-button">REGISTER</button>
+            <p id="reg-message" class="error-message"></p>
+        </form>
+        <div class="links">
+            <a href="index.html">Back to Login</a>
+        </div>
+    </div>
+
+    <script>
+    document.getElementById('registrationForm').addEventListener('submit', function(event) {
+        event.preventDefault(); 
+        const name = document.getElementById('regName').value;
+        const employerId = document.getElementById('regEmployerId').value;
+        const username = document.getElementById('regUsername').value;
+        const password = document.getElementById('regPassword').value;
+        const messageElement = document.getElementById('reg-message');
+        
+        // Use relative path for API call
+        fetch('/api/register', { 
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, employerId, username, password })
+        })
+        .then(response => response.json())
+        .then(data => {
+            messageElement.textContent = data.message;
+            messageElement.style.color = data.success ? 'green' : 'red';
+            if (data.success) {
+                setTimeout(() => { window.location.href = 'index.html'; }, 2000);
+            }
+        })
+        .catch(error => {
+            messageElement.textContent = 'Failed to connect to the server.';
+        });
+    });
+</script>
+</body>
+</html>
