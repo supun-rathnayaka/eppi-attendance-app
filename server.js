@@ -1,5 +1,5 @@
+require('dotenv').config();
 const express = require('express');
-const bodyParser = require('body-parser');
 const fs = require('fs');
 const path = require('path');
 const ExcelJS = require('exceljs');
@@ -13,7 +13,7 @@ const PORT = process.env.PORT || 3000;
 // --- MONGODB CONNECTION SETUP ---
 // This line is RENDER-READY: It will check for Render's secret
 // "Environment Variable" first, or use the local string.
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://app_user:1234@cluster0.pdqxrwa.mongodb.net/?appName=Cluster0';
+const MONGODB_URI = process.env.MONGODB_URI;
 
 mongoose.connect(MONGODB_URI)
     .then(() => console.log('MongoDB connected successfully.'))
