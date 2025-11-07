@@ -67,8 +67,8 @@ const upload = multer({ storage: storage });
 // --- Middleware Setup ---
 app.use(express.static(__dirname)); // Serves all HTML, CSS, JS files
 app.use('/uploads', express.static(UPLOADS_DIR)); // Makes /uploads public
-app.use(bodyParser.json({ limit: '5mb' }));
-app.use(bodyParser.urlencoded({ extended: true }));
+app.use(express.json({ limit: '5mb' }));
+app.use(express.urlencoded({ extended: true }));
 
 
 // --- API Endpoints (Using Mongoose) ---
