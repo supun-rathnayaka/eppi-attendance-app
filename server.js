@@ -122,12 +122,39 @@ app.post('/api/attendance/mark', upload.single('photo'), async (req, res) => {
     
     try {
         const now = new Date();
+
+        // --- TIMEZONE FIX ---
+        // 1. Define your specific timezone
+        const timeZone = 'Asia/Dubai'; // Use your local timezone
+        
+        // 2. Define formatting options
+        const dateOptions = {
+            timeZone: timeZone,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit'
+        };
+        
+        const timeOptions = {
+            timeZone: timeZone,
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: true // Use AM/PM
+        };
+
+        // 3. Create the correct date/time strings
+        // We use 'en-US' or 'en-LK' for the format, but the *timeZone* option is what fixes the time.
+        const formattedDate = now.toLocaleDateString('en-US', dateOptions);
+        const formattedTime = now.toLocaleTimeString('en-US', timeOptions);
+        // --- END OF FIX ---
+
         const newRecord = new Attendance({
             employerId: employerId,
             loggerName: loggerName,
-            timestamp: now,
-            date: now.toLocaleDateString('en-US'),
-            time: now.toLocaleTimeString('en-US'),
+            timestamp: now, // This correctly saves the original UTC timestamp
+            date: formattedDate, // This saves the CORRECT local date string
+            time: formattedTime, // This saves the CORRECT local time string
             photoPath: req.file.path, 
             photoUrl: '/uploads/' + req.file.filename 
         });
@@ -138,8 +165,8 @@ app.post('/api/attendance/mark', upload.single('photo'), async (req, res) => {
             message: 'Attendance recorded and photo saved!',
             record: {
                 photoUrl: newRecord.photoUrl,
-                date: newRecord.date,
-                time: newRecord.time
+                date: formattedDate, // Send back the new correct date
+                time: formattedTime  // Send back the new correct time
             }
         });
     } catch (error) {
