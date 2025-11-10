@@ -13,6 +13,7 @@
     "exceljs": "^4.4.0",
     "express": "^5.1.0",
     "mongoose": "^8.19.3",
-    "multer": "^2.0.2"
+    "multer": "^2.0.2",
+    "nodemailer": "^6.9.13"
   }
 }

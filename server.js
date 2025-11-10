@@ -3,8 +3,9 @@ const express = require('express');
 const ExcelJS = require('exceljs');
 const multer = require('multer');
 const mongoose = require('mongoose');
-const cloudinary = require('cloudinary').v2; // <-- NEW: Cloudinary SDK
-const { Readable } = require('stream'); // Utility for turning buffer into a stream
+const cloudinary = require('cloudinary').v2; 
+const { Readable } = require('stream'); 
+const nodemailer = require('nodemailer'); // <-- NEW
 
 const app = express();
 const PORT = process.env.PORT || 3000; 
@@ -17,6 +18,16 @@ cloudinary.config({
 });
 // --- END CLOUDINARY CONFIG ---
 
+// --- EMAIL CONFIGURATION (Nodemailer) ---
+const transporter = nodemailer.createTransport({
+    service: 'gmail', // Change to 'outlook' or 'Outlook365' if using Microsoft
+    auth: {
+        user: process.env.EMAIL_USER, // The sender's email address
+        pass: process.env.EMAIL_PASS // The sender's app password
+    }
+});
+// --- END EMAIL CONFIG ---
+
 // --- MONGODB CONNECTION SETUP ---
 const MONGODB_URI = process.env.MONGODB_URI;
 
@@ -25,30 +36,49 @@ mongoose.connect(MONGODB_URI)
     .catch(err => console.error('MongoDB connection error:', err));
 
 
-// --- MONGODB SCHEMAS ---
+// --- MONGODB SCHEMAS (Database Structure) ---
 
+// 1. User Schema (UPDATED with personal details)
 const UserSchema = new mongoose.Schema({
     name: { type: String, required: true },
+    jobTitle: { type: String },              
+    contactNumber: { type: String },         
+    email: { type: String },                 
     employerId: { type: String, required: true, unique: true },
     username: { type: String, required: true, unique: true },
     password: { type: String, required: true }
 });
 
+// 2. Attendance Schema 
 const AttendanceSchema = new mongoose.Schema({
     employerId: { type: String, required: true },
     loggerName: { type: String, required: true },
     timestamp: { type: Date, default: Date.now },
     date: { type: String }, 
     time: { type: String }, 
-    photoPath: { type: String }, // Stores Cloudinary Public ID
-    photoUrl: { type: String, required: true } // Stores Cloudinary Public URL
+    photoPath: { type: String }, 
+    photoUrl: { type: String, required: true } 
 });
+
+// 3. Leave Schema (NEW)
+const LeaveSchema = new mongoose.Schema({
+    employerId: { type: String, required: true },
+    loggerName: { type: String, required: true },
+    leaveType: { type: String, required: true },  
+    startDate: { type: Date, required: true },
+    endDate: { type: Date, required: true },
+    reason: { type: String },
+    status: { type: String, default: 'Pending' }, 
+    submittedAt: { type: Date, default: Date.now }
+});
+
 
 const User = mongoose.model('User', UserSchema);
 const Attendance = mongoose.model('Attendance', AttendanceSchema);
+const Leave = mongoose.model('Leave', LeaveSchema); // <-- NEW MODEL
 
 
-// --- Multer Configuration (In-Memory Storage for Cloudinary Upload) ---
+// --- Multer Configuration ---
 const upload = multer({ storage: multer.memoryStorage() });
 
 
@@ -59,14 +89,12 @@ app.use(express.urlencoded({ extended: true }));
 
 
 // --- Helper Function to upload buffer to Cloudinary ---
-// This is required to handle the file buffer from multer's memory storage
 const uploadStream = (buffer, options) => {
     return new Promise((resolve, reject) => {
         const stream = cloudinary.uploader.upload_stream(options, (error, result) => {
             if (error) reject(error);
             else resolve(result);
         });
-        // Pipe the buffer into the writable stream
         Readable.from(buffer).pipe(stream);
     });
 };
@@ -74,7 +102,7 @@ const uploadStream = (buffer, options) => {
 
 // --- API Endpoints ---
 
-// API 1: Login
+// API 1: Login (unchanged)
 app.post('/api/login', async (req, res) => {
     const { username, password } = req.body;
     try {
@@ -93,10 +121,10 @@ app.post('/api/login', async (req, res) => {
 });
 
 
-// API 2: Registration
+// API 2: Registration (UPDATED to accept new fields)
 app.post('/api/register', async (req, res) => {
-    const { name, employerId, username, password } = req.body;
-    if (!name || !employerId || !username || !password) {
+    const { name, employerId, jobTitle, contactNumber, email, username, password } = req.body; 
+    if (!name || !employerId || !jobTitle || !contactNumber || !email || !username || !password) {
         return res.status(400).json({ success: false, message: 'All fields are required.' });
     }
     try {
@@ -105,7 +133,7 @@ app.post('/api/register', async (req, res) => {
             return res.status(409).json({ success: false, message: 'Username or Employer ID already exists.' });
         }
         
-        const newUser = new User({ name, employerId, username, password });
+        const newUser = new User({ name, employerId, jobTitle, contactNumber, email, username, password });
         await newUser.save();
         res.json({ success: true, message: 'Registration successful! You can now log in.' });
     } catch (error) {
@@ -125,26 +153,23 @@ app.post('/api/attendance/mark', upload.single('photo'), async (req, res) => {
         const now = new Date();
         const timeZone = 'Asia/Dubai'; 
         
-        // Date/Time Formatting (Dubai Timezone)
         const dateOptions = { timeZone: timeZone, year: 'numeric', month: '2-digit', day: '2-digit' };
         const timeOptions = { timeZone: timeZone, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true };
 
         const formattedDate = now.toLocaleDateString('en-US', dateOptions);
         const formattedTime = now.toLocaleTimeString('en-US', timeOptions);
         
-        // --- CLOUDINARY UPLOAD LOGIC ---
+        // CLOUDINARY UPLOAD LOGIC
         const fileName = `${employerId}_${Date.now()}`;
         
-        // Use the uploadStream helper function
         const uploadResult = await uploadStream(req.file.buffer, {
-            folder: 'eppi_attendance', // Organizes photos into this folder in Cloudinary
+            folder: 'eppi_attendance', 
             public_id: fileName,       
             resource_type: 'image',
             overwrite: true            
         });
         
-        const photoUrl = uploadResult.secure_url; // The public HTTPS URL to the photo
-        // --- END CLOUDINARY UPLOAD ---
+        const photoUrl = uploadResult.secure_url; 
 
         const newRecord = new Attendance({
             employerId: employerId,
@@ -152,8 +177,8 @@ app.post('/api/attendance/mark', upload.single('photo'), async (req, res) => {
             timestamp: now, 
             date: formattedDate, 
             time: formattedTime, 
-            photoPath: uploadResult.public_id, // Save the Cloudinary Public ID
-            photoUrl: photoUrl // Save the Cloudinary Public URL
+            photoPath: uploadResult.public_id, 
+            photoUrl: photoUrl 
         });
 
         await newRecord.save();
@@ -173,9 +198,65 @@ app.post('/api/attendance/mark', upload.single('photo'), async (req, res) => {
 });
 
 
-// API 4: Excel Report Generation (Access Restricted to Admin)
+// API 4: Leave Submission (Saves to DB and sends Email Notification)
+app.post('/api/leave/submit', async (req, res) => {
+    const { employerId, loggerName, leaveType, startDate, endDate, reason } = req.body;
+    
+    if (!employerId || !loggerName || !leaveType || !startDate || !endDate || !reason) {
+        return res.status(400).json({ success: false, message: 'All leave form fields are required.' });
+    }
+
+    try {
+        // 1. Save the new leave request to MongoDB
+        const newLeaveRequest = new Leave({
+            employerId,
+            loggerName,
+            leaveType,
+            startDate: new Date(startDate),
+            endDate: new Date(endDate),
+            reason,
+            status: 'Pending' 
+        });
+
+        await newLeaveRequest.save();
+
+        // 2. Send email notification to Admin/HR
+        const mailOptions = {
+            from: process.env.EMAIL_USER,
+            to: process.env.ADMIN_EMAIL, // The recipient email address for HR notifications
+            subject: `[EPPI HR] NEW PENDING LEAVE REQUEST: ${loggerName} (${employerId})`,
+            html: `
+                <p>A new leave request has been submitted and is pending your approval.</p>
+                <p><strong>Employee:</strong> ${loggerName} (${employerId})</p>
+                <p><strong>Leave Type:</strong> ${leaveType}</p>
+                <p><strong>Period:</strong> ${startDate} to ${endDate}</p>
+                <p><strong>Reason:</strong> ${reason}</p>
+                <hr>
+                <p>This request has been logged in the MongoDB 'Leaves' collection with status 'Pending'.</p>
+            `
+        };
+
+        transporter.sendMail(mailOptions, (error, info) => {
+            if (error) {
+                // Do not fail the API call if the email fails, just log it.
+                console.error("Leave submission email notification FAILED:", error); 
+            } else {
+                console.log('Admin email notification sent successfully: ' + info.response);
+            }
+        });
+
+        res.json({ success: true, message: 'Leave request submitted successfully! HR has been notified.' });
+    } catch (error) {
+        console.error('Server error during leave submission:', error);
+        res.status(500).json({ success: false, message: 'Server error during leave submission.' });
+    }
+});
+
+
+// API 5: Excel Report Generation (Access Restricted to Admin)
 app.get('/api/attendance/report', async (req, res) => {
-    try {
+    // ... (This API remains the same) ...
+    try {
         const requesterId = req.query.employerId;
         const ADMIN_ID = 'EPPI-001'; 
 

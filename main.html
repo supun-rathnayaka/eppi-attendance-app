@@ -40,6 +40,7 @@
                     </div>
                 </div>
             </div>
+            
             <div class="main-box info-box">
                 <h3>Your Info</h3>
                 <p>Your personal details and latest record.</p>
@@ -53,7 +54,33 @@
                     <p><strong>Time:</strong> <span id="latestTime">N/A</span></p>
                 </div>
             </div>
-        </div>
+            
+            <div class="main-box leave-box">
+                <h3>Leave Submission</h3>
+                <p>Request time off by filling out the form below.</p>
+                
+                <form id="leaveSubmissionForm">
+                    <select id="leaveType" required>
+                        <option value="">-- Select Leave Type --</option>
+                        <option value="Annual">Annual Leave</option>
+                        <option value="Sick">Sick Leave</option>
+                        <option value="Emergency">Emergency Leave</option>
+                        <option value="Other">Other</option>
+                    </select>
+                    
+                    <label for="startDate">Start Date:</label>
+                    <input type="date" id="startDate" required>
+
+                    <label for="endDate">End Date:</label>
+                    <input type="date" id="endDate" required>
+
+                    <textarea id="reason" placeholder="Reason for leave (required)" required></textarea>
+
+                    <button type="submit" class="primary-action-button">Submit Leave Request</button>
+                    <p id="leave-message" class="error-message"></p>
+                </form>
+            </div>
+            </div>
     </main>
     
     <script src="attendance.js"></script>
@@ -72,7 +99,7 @@
             document.getElementById('infoName').textContent = userName;
             document.getElementById('infoEmployerId').textContent = employerId;
             
-            // NEW: Display stored latest attendance if available
+            // Display stored latest attendance if available
             if (latestDate && latestTime) {
                 document.getElementById('latestDate').textContent = latestDate;
                 document.getElementById('latestTime').textContent = latestTime;
@@ -85,10 +112,47 @@
             window.location.href = 'index.html';
         });
 
+        // Report download functionality (Admin Access Check)
         document.getElementById('downloadReportBtn').addEventListener('click', (e) => {
             e.preventDefault();
-            // Ensure the employerId is passed for Admin access check
+            // Pass employerId for server-side check
             window.open(`/api/attendance/report?employerId=${employerId}`, '_blank'); 
+        });
+
+        // Leave Submission functionality
+        document.getElementById('leaveSubmissionForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const leaveMessage = document.getElementById('leave-message');
+            leaveMessage.textContent = 'Submitting...';
+            leaveMessage.style.color = 'blue';
+
+            const leaveData = {
+                employerId: employerId, // Retrieved from local storage
+                loggerName: userName,   // Retrieved from local storage
+                leaveType: document.getElementById('leaveType').value,
+                startDate: document.getElementById('startDate').value,
+                endDate: document.getElementById('endDate').value,
+                reason: document.getElementById('reason').value
+            };
+
+            fetch('/api/leave/submit', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(leaveData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                leaveMessage.textContent = data.message;
+                leaveMessage.style.color = data.success ? 'green' : 'red';
+                if (data.success) {
+                    document.getElementById('leaveSubmissionForm').reset();
+                }
+            })
+            .catch(error => {
+                leaveMessage.textContent = 'Failed to submit request: Server error.';
+                leaveMessage.style.color = 'red';
+                console.error('Leave Submit Error:', error);
+            });
         });
     </script>
 </body>
