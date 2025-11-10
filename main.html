@@ -1,88 +1,95 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Main Dashboard - EPPI</title>
-    <link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Main Dashboard - EPPI</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body class="main-body">
-    <header>
-        <div class="header-content">
-            <img src="upscalemedia-transformed.jpg" alt="EPPI Logo" class="main-logo">
-            <h1>Welcome, <span id="welcomeName">Guest</span></h1>
-            <nav>
-                <a href="#" id="downloadReportBtn" title="Download Attendance Report (Admin Only)">Download Report</a>
-                <a href="#" id="logoutLink" class="logout-button">Logout</a>
-            </nav>
-        </div>
-    </header>
-    <main class="dashboard-content">
-        <h2>Dashboard Overview</h2>
-        <div class="dashboard-grid">
-            <div class="main-box attendance-box">
-                <h3>Attendance</h3>
-                <p>Use the camera to mark your attendance with a photo timestamp.</p>
-                <div class="attendance-content-area">
-                    <button id="markAttendanceBtn" class="primary-action-button">Mark Your Attendance</button>
-                    <div id="cameraSection" style="display:none;" class="hidden-camera-section">
-                        <h4>Live Camera Feed</h4>
-                        <video id="videoFeed" width="100%" height="auto" autoplay playsinline></video>
-                        <button id="captureBtn" class="capture-button">Capture Photo</button>
-                        <canvas id="canvas" style="display:none;"></canvas>
-                        <div id="resultArea" class="result-area" style="display:none;">
-                            <h4>Attendance Recorded!</h4>
-                            <img id="capturedImage" alt="Captured Attendance Photo" class="captured-photo">
-                            <p><strong>Time:</strong> <span id="recordTime"></span></p>
-                            <p><strong>Date:</strong> <span id="recordDate"></span></p>
-                            <p class="success-note"></p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="main-box info-box">
-                <h3>Your Info</h3>
-                <p>Your personal details and latest record.</p>
-                <div class="user-info-details">
-                    <p><strong>Logger Name:</strong> <span id="infoName"></span></p>
-                    <p><strong>Employer ID:</strong> <span id="infoEmployerId"></span></p>
-                </div>
-            </div>
-        </div>
-    </main>
-    
-    <script src="attendance.js"></script>
-    <script>
-        const userName = localStorage.getItem('eppi_user_name');
-        const employerId = localStorage.getItem('eppi_employer_id');
-        if (!userName || !employerId) {
-            window.location.href = 'index.html';
-        } else {
-            document.getElementById('welcomeName').textContent = userName;
-            document.getElementById('infoName').textContent = userName;
-            document.getElementById('infoEmployerId').textContent = employerId;
-        }
-        document.getElementById('logoutLink').addEventListener('click', (e) => {
-            e.preventDefault();
-            localStorage.clear();
-            window.location.href = 'index.html';
-        });
+    <header>
+        <div class="header-content">
+            <img src="upscalemedia-transformed.jpg" alt="EPPI Logo" class="main-logo">
+            <h1>Welcome, <span id="welcomeName">Guest</span></h1>
+            <nav>
+                <a href="#" id="downloadReportBtn" title="Download Attendance Report">Download Report</a>
+                <a href="#" id="logoutLink" class="logout-button">Logout</a>
+            </nav>
+        </div>
+    </header>
+    <main class="dashboard-content">
+        <h2>Dashboard Overview</h2>
+        <div class="dashboard-grid">
+            <div class="main-box attendance-box">
+                <h3>Attendance</h3>
+                <p>Use the camera to mark your attendance with a photo timestamp.</p>
+                <div class="attendance-content-area">
+                    <button id="markAttendanceBtn" class="primary-action-button">Mark Your Attendance</button>
+                    <div id="cameraSection" style="display:none;" class="hidden-camera-section">
+                        <h4>Live Camera Feed</h4>
+                        <video id="videoFeed" width="100%" height="auto" autoplay playsinline></video>
+                        <button id="captureBtn" class="capture-button">Capture Photo</button>
+                        <canvas id="canvas" style="display:none;"></canvas>
+                        <div id="resultArea" class="result-area" style="display:none;">
+                            <h4>Attendance Recorded!</h4>
+                            <img id="capturedImage" alt="Captured Attendance Photo" class="captured-photo">
+                            <p><strong>Time:</strong> <span id="recordTime"></span></p>
+                            <p><strong>Date:</strong> <span id="recordDate"></span></p>
+                            <p class="success-note"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="main-box info-box">
+                <h3>Your Info</h3>
+                <p>Your personal details and latest record.</p>
+                <div class="user-info-details">
+                    <p><strong>Logger Name:</strong> <span id="infoName"></span></p>
+                    <p><strong>Employer ID:</strong> <span id="infoEmployerId"></span></p>
+                </div>
+                <h4>Latest Attendance</h4>
+                <div id="latestAttendanceDetails">
+                    <p><strong>Date:</strong> <span id="latestDate">N/A</span></p>
+                    <p><strong>Time:</strong> <span id="latestTime">N/A</span></p>
+                </div>
+            </div>
+        </div>
+    </main>
+    
+    <script src="attendance.js"></script>
+    <script>
+        const userName = localStorage.getItem('eppi_user_name');
+        const employerId = localStorage.getItem('eppi_employer_id');
+        
+        // Retrieve and display latest attendance from localStorage on load
+        const latestDate = localStorage.getItem('eppi_latest_date');
+        const latestTime = localStorage.getItem('eppi_latest_time');
 
-        // UPDATED: This listener now fetches the user's ID and sends it to the server
-        // The server.js file will check this ID against 'EPPI-001' to allow access.
-        document.getElementById('downloadReportBtn').addEventListener('click', (e) => {
-            e.preventDefault();
-            // 1. Get the logged-in user's ID
-            const requesterId = localStorage.getItem('eppi_employer_id'); 
+        if (!userName || !employerId) {
+            window.location.href = 'index.html';
+        } else {
+            document.getElementById('welcomeName').textContent = userName;
+            document.getElementById('infoName').textContent = userName;
+            document.getElementById('infoEmployerId').textContent = employerId;
+            
+            // NEW: Display stored latest attendance if available
+            if (latestDate && latestTime) {
+                document.getElementById('latestDate').textContent = latestDate;
+                document.getElementById('latestTime').textContent = latestTime;
+            }
+        }
 
-            if (!requesterId) {
-                alert("Login required to download report.");
-                return;
-            }
+        document.getElementById('logoutLink').addEventListener('click', (e) => {
+            e.preventDefault();
+            localStorage.clear();
+            window.location.href = 'index.html';
+        });
 
-            // 2. Open the report URL, passing the ID as a query parameter
-            window.open(`/api/attendance/report?employerId=${requesterId}`, '_blank'); 
-        });
-    </script>
+        document.getElementById('downloadReportBtn').addEventListener('click', (e) => {
+            e.preventDefault();
+            // Ensure the employerId is passed for Admin access check
+            window.open(`/api/attendance/report?employerId=${employerId}`, '_blank'); 
+        });
+    </script>
 </body>
 </html>

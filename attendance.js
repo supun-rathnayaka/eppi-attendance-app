@@ -9,6 +9,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const recordTime = document.getElementById('recordTime');
     const recordDate = document.getElementById('recordDate');
 
+    // NEW: Get the permanent display elements from main.html
+    const latestDateDisplay = document.getElementById('latestDate');
+    const latestTimeDisplay = document.getElementById('latestTime');
+
     const EMPLOYER_ID = localStorage.getItem('eppi_employer_id'); 
     const LOGGER_NAME = localStorage.getItem('eppi_user_name'); 
     
@@ -74,12 +78,22 @@ document.addEventListener('DOMContentLoaded', () => {
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
+                    // Update temporary success area
                     cameraSection.style.display = 'none';
                     resultArea.style.display = 'block';
                     capturedImage.src = data.record.photoUrl; 
                     recordDate.textContent = data.record.date;
                     recordTime.textContent = data.record.time;
                     resultArea.querySelector('.success-note').textContent = 'Attendance saved!';
+                    
+                    // NEW: Update permanent dashboard display and save to local storage
+                    if (latestDateDisplay && latestTimeDisplay) {
+                        latestDateDisplay.textContent = data.record.date;
+                        latestTimeDisplay.textContent = data.record.time;
+
+                        localStorage.setItem('eppi_latest_date', data.record.date);
+                        localStorage.setItem('eppi_latest_time', data.record.time);
+                    }
                 } else {
                     alert('Error: ' + data.message);
                 }
