@@ -13,8 +13,13 @@
         <form id="registrationForm">
             <input type="text" id="regName" placeholder="Full Name" required>
             <input type="text" id="regEmployerId" placeholder="Employer ID (e.g., EPPI-100)" required>
+            
+            <input type="text" id="regJobTitle" placeholder="Job Title" required>
+            <input type="text" id="regContactNumber" placeholder="Contact Number" required>
+            <input type="email" id="regEmail" placeholder="Personal Email Address" required>
             <input type="text" id="regUsername" placeholder="Username (for login)" required>
             <input type="password" id="regPassword" placeholder="Password" required>
+            
             <button type="submit" class="login-button">REGISTER</button>
             <p id="reg-message" class="error-message"></p>
         </form>
@@ -26,28 +31,43 @@
     <script>
     document.getElementById('registrationForm').addEventListener('submit', function(event) {
         event.preventDefault(); 
+        
         const name = document.getElementById('regName').value;
         const employerId = document.getElementById('regEmployerId').value;
+        
+        // --- NEW VARIABLES TO COLLECT ---
+        const jobTitle = document.getElementById('regJobTitle').value;
+        const contactNumber = document.getElementById('regContactNumber').value;
+        const email = document.getElementById('regEmail').value;
+        // --- END NEW VARIABLES ---
+        
         const username = document.getElementById('regUsername').value;
         const password = document.getElementById('regPassword').value;
         const messageElement = document.getElementById('reg-message');
         
+        messageElement.textContent = 'Registering...';
+        messageElement.style.color = 'blue';
+
         // Use relative path for API call
         fetch('/api/register', { 
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, employerId, username, password })
+            // --- UPDATED JSON BODY TO INCLUDE NEW FIELDS ---
+            body: JSON.stringify({ name, employerId, jobTitle, contactNumber, email, username, password })
+            // --- END UPDATED BODY ---
         })
         .then(response => response.json())
         .then(data => {
             messageElement.textContent = data.message;
             messageElement.style.color = data.success ? 'green' : 'red';
             if (data.success) {
+                // Redirect on success
                 setTimeout(() => { window.location.href = 'index.html'; }, 2000);
             }
         })
         .catch(error => {
             messageElement.textContent = 'Failed to connect to the server.';
+            messageElement.style.color = 'red';
         });
     });
 </script>
