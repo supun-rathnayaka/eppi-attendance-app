@@ -20,12 +20,15 @@ cloudinary.config({
 
 // --- EMAIL CONFIGURATION (Nodemailer) ---
 const transporter = nodemailer.createTransport({
-    service: 'gmail', // Change to 'outlook' or 'Outlook365' if using Microsoft
+    host: 'smtp.gmail.com', // Explicitly define the host
+    port: 587,              // Use standard secure TLS port
+    secure: false,          // This allows Nodemailer to use STARTTLS on port 587
     auth: {
         user: process.env.EMAIL_USER, // The sender's email address
-        pass: process.env.EMAIL_PASS // The sender's app password
+        pass: process.env.EMAIL_PASS // The sender's app password (16-digit App Password)
     }
 });
+// --- END EMAIL CONFIG ---
 // --- END EMAIL CONFIG ---
 
 // --- MONGODB CONNECTION SETUP ---
