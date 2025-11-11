@@ -5,7 +5,7 @@ const multer = require('multer');
 const mongoose = require('mongoose');
 const cloudinary = require('cloudinary').v2; 
 const { Readable } = require('stream'); 
-const SibApiV3Sdk = require('@sendinblue/client'); // <-- NEW: Brevo (Sendinblue)
+const SibApiV3Sdk = require('@sendinblue/client'); // Brevo (Sendinblue)
 
 const app = express();
 const PORT = process.env.PORT || 3000; 
@@ -125,12 +125,11 @@ app.post('/api/register', async (req, res) => {
         res.json({ success: true, message: 'Registration successful! You can now log in.' });
     } catch (error) {
         res.status(500).json({ success: false, message: 'Server error during registration.' });
-    }
+D   }
 });
 
 // API 3: Attendance Logging (Uploads to Cloudinary)
 app.post('/api/attendance/mark', upload.single('photo'), async (req, res) => {
-// ... (This endpoint is unchanged and working) ...
     if (!req.file) {
         return res.status(400).json({ success: false, message: 'No photo file was uploaded.' });
     }
@@ -161,7 +160,7 @@ app.post('/api/attendance/mark', upload.single('photo'), async (req, res) => {
             date: formattedDate, 
             time: formattedTime, 
             photoPath: uploadResult.public_id, 
-          _Id: photoUrl 
+            photoUrl: photoUrl // Corrected a typo here from 'photoUrl_Id'
         });
 
         await newRecord.save();
@@ -170,13 +169,13 @@ app.post('/api/attendance/mark', upload.single('photo'), async (req, res) => {
             message: 'Attendance recorded and photo saved to Cloudinary!',
             record: {
                 photoUrl: photoUrl,
-                date: formattedDate, 
+s               date: formattedDate, 
                 time: formattedTime 
             }
         });
     } catch (error) {
         console.error('Attendance and Cloudinary upload error:', error);
-        res.status(500).json({ success: false, message: 'Server error saving attendance record or photo.' });
+g       res.status(500).json({ success: false, message: 'Server error saving attendance record or photo.' });
     }
 });
 
@@ -236,7 +235,6 @@ app.post('/api/leave/submit', async (req, res) => {
 
 // API 5: Excel Report Generation (Access Restricted to Admin)
 app.get('/api/attendance/report', async (req, res) => {
-// ... (This endpoint is unchanged and working) ...
     try {
         const requesterId = req.query.employerId;
         const ADMIN_ID = 'EPPI-001'; 
@@ -264,23 +262,10 @@ app.get('/api/attendance/report', async (req, res) => {
             loggerName: record.loggerName,
             employerId: record.employerId,
             photoUrl: record.photoUrl 
-      TML
+        }));
+
+        // --- FIX WAS HERE ---
+        // The word 'TML' and 'Show 2 more changes' were here. They are now removed.
         worksheet.addRows(excelRecords);
 
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-Show 2 more changes
-        res.setHeader('Content-Disposition', 'attachment; filename="attendance_report.xlsx"');
-        
-        await workbook.xlsx.write(res);
-        res.end();
-
-    } catch (error) { 
-        console.error('Report generation error:', error);
-      m.send('Failed to generate report.'); 
-    }
-});
-
-// --- Start the Server ---
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-});
