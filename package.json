@@ -14,6 +14,6 @@
     "express": "^5.1.0",
     "mongoose": "^8.19.3",
     "multer": "^2.0.2",
-    "nodemailer": "^6.10.1"
+    "@sendinblue/client": "^3.3.1"
   }
 }

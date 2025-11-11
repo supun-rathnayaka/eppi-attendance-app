@@ -5,41 +5,32 @@ const multer = require('multer');
 const mongoose = require('mongoose');
 const cloudinary = require('cloudinary').v2; 
 const { Readable } = require('stream'); 
-const nodemailer = require('nodemailer'); // <-- NEW
+const SibApiV3Sdk = require('@sendinblue/client'); // <-- NEW: Brevo (Sendinblue)
 
 const app = express();
 const PORT = process.env.PORT || 3000; 
 
-// --- CLOUDINARY CONFIGURATION (Free-Forever Storage) ---
+// --- CLOUDINARY CONFIGURATION ---
 cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
     api_key: process.env.CLOUDINARY_API_KEY,
     api_secret: process.env.CLOUDINARY_API_SECRET
 });
-// --- END CLOUDINARY CONFIG ---
 
-// --- EMAIL CONFIGURATION (Nodemailer) ---
-const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com', 
-    port: 465,              // Use secure SMTPS port
-    secure: true,           // Set to true when using port 465
-    auth: {
-        user: process.env.EMAIL_USER, // The sender's email address
-        pass: process.env.EMAIL_PASS // The sender's app password (16-digit App Password)
-    }
-});
-// --- END EMAIL CONFIG ---
+// --- BREVO (SENDINBLUE) API CONFIGURATION ---
+const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
+const apiKey = apiInstance.authentications['api-key'];
+apiKey.apiKey = process.env.BREVO_API_KEY; // Get API key from Render Env Vars
+// --- END BREVO CONFIG ---
 
 // --- MONGODB CONNECTION SETUP ---
 const MONGODB_URI = process.env.MONGODB_URI;
-
 mongoose.connect(MONGODB_URI)
     .then(() => console.log('MongoDB connected successfully.'))
     .catch(err => console.error('MongoDB connection error:', err));
 
 
-// --- MONGODB SCHEMAS (Database Structure) ---
-
+// --- MONGODB SCHEMAS ---
 // 1. User Schema (UPDATED with personal details)
 const UserSchema = new mongoose.Schema({
     name: { type: String, required: true },
@@ -74,21 +65,17 @@ const LeaveSchema = new mongoose.Schema({
     submittedAt: { type: Date, default: Date.now }
 });
 
-
 const User = mongoose.model('User', UserSchema);
 const Attendance = mongoose.model('Attendance', AttendanceSchema);
-const Leave = mongoose.model('Leave', LeaveSchema); // <-- NEW MODEL
-
+const Leave = mongoose.model('Leave', LeaveSchema);
 
 // --- Multer Configuration ---
 const upload = multer({ storage: multer.memoryStorage() });
-
 
 // --- Middleware Setup ---
 app.use(express.static(__dirname)); 
 app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true }));
-
 
 // --- Helper Function to upload buffer to Cloudinary ---
 const uploadStream = (buffer, options) => {
@@ -100,7 +87,6 @@ const uploadStream = (buffer, options) => {
         Readable.from(buffer).pipe(stream);
     });
 };
-
 
 // --- API Endpoints ---
 
@@ -122,7 +108,6 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
-
 // API 2: Registration (UPDATED to accept new fields)
 app.post('/api/register', async (req, res) => {
     const { name, employerId, jobTitle, contactNumber, email, username, password } = req.body; 
@@ -143,9 +128,9 @@ app.post('/api/register', async (req, res) => {
     }
 });
 
-
 // API 3: Attendance Logging (Uploads to Cloudinary)
 app.post('/api/attendance/mark', upload.single('photo'), async (req, res) => {
+// ... (This endpoint is unchanged and working) ...
     if (!req.file) {
         return res.status(400).json({ success: false, message: 'No photo file was uploaded.' });
     }
@@ -154,14 +139,10 @@ app.post('/api/attendance/mark', upload.single('photo'), async (req, res) => {
     try {
         const now = new Date();
         const timeZone = 'Asia/Dubai'; 
-        
         const dateOptions = { timeZone: timeZone, year: 'numeric', month: '2-digit', day: '2-digit' };
         const timeOptions = { timeZone: timeZone, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true };
-
         const formattedDate = now.toLocaleDateString('en-US', dateOptions);
         const formattedTime = now.toLocaleTimeString('en-US', timeOptions);
-        
-        // CLOUDINARY UPLOAD LOGIC
         const fileName = `${employerId}_${Date.now()}`;
         
         const uploadResult = await uploadStream(req.file.buffer, {
@@ -180,7 +161,7 @@ app.post('/api/attendance/mark', upload.single('photo'), async (req, res) => {
             date: formattedDate, 
             time: formattedTime, 
             photoPath: uploadResult.public_id, 
-            photoUrl: photoUrl 
+          _Id: photoUrl 
         });
 
         await newRecord.save();
@@ -199,8 +180,7 @@ app.post('/api/attendance/mark', upload.single('photo'), async (req, res) => {
     }
 });
 
-
-// API 4: Leave Submission (Saves to DB and sends Email Notification)
+// API 4: Leave Submission (UPDATED to use Brevo API)
 app.post('/api/leave/submit', async (req, res) => {
     const { employerId, loggerName, leaveType, startDate, endDate, reason } = req.body;
     
@@ -219,45 +199,44 @@ app.post('/api/leave/submit', async (req, res) => {
             reason,
             status: 'Pending' 
         });
-
         await newLeaveRequest.save();
 
-        // 2. Send email notification to Admin/HR
-        const mailOptions = {
-            from: process.env.EMAIL_USER,
-            to: process.env.ADMIN_EMAIL, // The recipient email address for HR notifications
-            subject: `[EPPI HR] NEW PENDING LEAVE REQUEST: ${loggerName} (${employerId})`,
-            html: `
-                <p>A new leave request has been submitted and is pending your approval.</p>
-                <p><strong>Employee:</strong> ${loggerName} (${employerId})</p>
-                <p><strong>Leave Type:</strong> ${leaveType}</p>
-                <p><strong>Period:</strong> ${startDate} to ${endDate}</p>
-                <p><strong>Reason:</strong> ${reason}</p>
-                <hr>
-                <p>This request has been logged in the MongoDB 'Leaves' collection with status 'Pending'.</p>
-            `
-        };
+        // 2. Send email notification via Brevo API
+        let sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
+        sendSmtpEmail.subject = `[EPPI HR] NEW PENDING LEAVE REQUEST: ${loggerName} (${employerId})`;
+        sendSmtpEmail.htmlContent = `
+            <p>A new leave request has been submitted and is pending your approval.</p>
+            <p><strong>Employee:</strong> ${loggerName} (${employerId})</p>
+            <p><strong>Leave Type:</strong> ${leaveType}</p>
+            <p><strong>Period:</strong> ${startDate} to ${endDate}</p>
+            <p><strong>Reason:</strong> ${reason}</p>
+            <hr>
+            <p>This request has been logged in the MongoDB 'Leaves' collection with status 'Pending'.</p>
+        `;
+        // Sender MUST be a verified sender in your Brevo account
+        sendSmtpEmail.sender = { name: "EPPI HR System", email: process.env.EMAIL_USER };
+        sendSmtpEmail.to = [{ email: process.env.ADMIN_EMAIL }]; // Recipient
 
-        transporter.sendMail(mailOptions, (error, info) => {
-            if (error) {
-                // Do not fail the API call if the email fails, just log it.
-                console.error("Leave submission email notification FAILED:", error); 
-            } else {
-                console.log('Admin email notification sent successfully: ' + info.response);
-            }
-        });
+        // Send the email
+        try {
+            await apiInstance.sendTransTransactionalEmail(sendSmtpEmail);
+            console.log('Brevo email notification sent successfully.');
+        } catch (emailError) {
+            // Log the email error but don't fail the entire request
+            console.error("Brevo email notification FAILED:", emailError);
+        }
 
         res.json({ success: true, message: 'Leave request submitted successfully! HR has been notified.' });
-    } catch (error) {
-        console.error('Server error during leave submission:', error);
+    
+    } catch (dbError) {
+        console.error('Server error during leave submission:', dbError);
         res.status(500).json({ success: false, message: 'Server error during leave submission.' });
     }
 });
 
-
 // API 5: Excel Report Generation (Access Restricted to Admin)
 app.get('/api/attendance/report', async (req, res) => {
-    // ... (This API remains the same) ...
+// ... (This endpoint is unchanged and working) ...
     try {
         const requesterId = req.query.employerId;
         const ADMIN_ID = 'EPPI-001'; 
@@ -285,11 +264,11 @@ app.get('/api/attendance/report', async (req, res) => {
             loggerName: record.loggerName,
             employerId: record.employerId,
             photoUrl: record.photoUrl 
-        }));
-
+      TML
         worksheet.addRows(excelRecords);
 
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+Show 2 more changes
         res.setHeader('Content-Disposition', 'attachment; filename="attendance_report.xlsx"');
         
         await workbook.xlsx.write(res);
@@ -297,10 +276,9 @@ app.get('/api/attendance/report', async (req, res) => {
 
     } catch (error) { 
         console.error('Report generation error:', error);
-        res.status(500).send('Failed to generate report.'); 
+      m.send('Failed to generate report.'); 
     }
 });
-
 
 // --- Start the Server ---
 app.listen(PORT, () => {
