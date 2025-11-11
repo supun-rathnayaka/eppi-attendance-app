@@ -125,7 +125,7 @@ app.post('/api/register', async (req, res) => {
         res.json({ success: true, message: 'Registration successful! You can now log in.' });
     } catch (error) {
         res.status(500).json({ success: false, message: 'Server error during registration.' });
-D   }
+    }
 });
 
 // API 3: Attendance Logging (Uploads to Cloudinary)
@@ -160,7 +160,7 @@ app.post('/api/attendance/mark', upload.single('photo'), async (req, res) => {
             date: formattedDate, 
             time: formattedTime, 
             photoPath: uploadResult.public_id, 
-            photoUrl: photoUrl // Corrected a typo here from 'photoUrl_Id'
+            photoUrl: photoUrl 
         });
 
         await newRecord.save();
@@ -169,13 +169,15 @@ app.post('/api/attendance/mark', upload.single('photo'), async (req, res) => {
             message: 'Attendance recorded and photo saved to Cloudinary!',
             record: {
                 photoUrl: photoUrl,
-s               date: formattedDate, 
+                // --- FIX WAS HERE (Removed stray "s") ---
+                date: formattedDate, 
                 time: formattedTime 
             }
         });
     } catch (error) {
         console.error('Attendance and Cloudinary upload error:', error);
-g       res.status(500).json({ success: false, message: 'Server error saving attendance record or photo.' });
+        // --- FIX WAS HERE (Removed stray "g") ---
+        res.status(500).json({ success: false, message: 'Server error saving attendance record or photo.' });
     }
 });
 
@@ -264,8 +266,23 @@ app.get('/api/attendance/report', async (req, res) => {
             photoUrl: record.photoUrl 
         }));
 
-        // --- FIX WAS HERE ---
-        // The word 'TML' and 'Show 2 more changes' were here. They are now removed.
+        // --- FIX WAS HERE (Removed stray "TML") ---
         worksheet.addRows(excelRecords);
 
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+s       res.setHeader('Content-Disposition', 'attachment; filename="attendance_report.xlsx"');
+        
+        await workbook.xlsx.write(res);
+        res.end(); // <-- FIX: This was missing in your file
+
+    } catch (error) { 
+        console.error('Report generation error:', error);
+        // --- FIX WAS HERE (Changed 'm.send' to 'res.status(500).send') ---
+        res.status(500).send('Failed to generate report.'); 
+    }
+});
+
+// --- Start the Server ---
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+});
