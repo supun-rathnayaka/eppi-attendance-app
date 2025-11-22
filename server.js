@@ -261,7 +261,7 @@ app.get('/api/attendance/report', async (req, res) => {
 
         if (!requesterId || requesterId !== ADMIN_ID) {
             console.warn(`Access Denied for ID: ${requesterId}`);
-            return res.status(4D3).send('Access Denied: Only the Admin User (EPPI-001) can download this report.');
+            return res.status(403).send('Access Denied: Only the Admin User (EPPI-001) can download this report.');
         }
 
         const records = await Attendance.find({}).sort({ timestamp: 1 });
